@@ -25,6 +25,7 @@ class ExcelViewerApp:
         self.schedule_menu.add_command(label="Edit Schedule", command=self.edit_schedule)
         self.schedule_menu.add_command(label="Suggest Merge", command=self.suggest_merge)
         self.schedule_menu.add_command(label="Find Conflict", command=self.find_conflict)
+        self.schedule_menu.add_command(label="Delete Schedule", command=self.delete_schedule)  # Add delete option
 
         # Frame for displaying the table
         self.frame = tk.Frame(self.root)
@@ -41,6 +42,7 @@ class ExcelViewerApp:
         # Load the file automatically on start
         self.file_path = os.path.join(os.path.dirname(__file__), file_name)
         self.load_file()
+
 
     def load_file(self):
         try:
@@ -165,14 +167,157 @@ class ExcelViewerApp:
         self.show_table(self.df)
 
 
+
+
+
     def edit_schedule(self):
-        pass  # Placeholder for editing schedule functionality
+        selected_item = self.tree.selection()
+
+        if not selected_item:
+            messagebox.showwarning("Warning", "Please select a schedule to edit.")
+            return
+
+        # Get the selected item's values
+        item_values = self.tree.item(selected_item)['values'][1:]  # Skip the first empty string
+
+        # Create a Toplevel window for input
+        self.root.lift()
+        self.root.focus_force()
+        new_schedule = list(item_values)  # Start with existing values
+
+        for col in range(len(new_schedule)):
+            column_name = self.df.iloc[3, col]  # Get the column name
+
+            # Create a Toplevel window for input
+            input_window = tk.Toplevel(self.root)
+            input_window.title("Edit Schedule Info")
+
+            # Create a label for the column name
+            label = tk.Label(input_window, text=f"Edit {column_name}:")
+            label.pack(pady=5)
+
+            # Create an entry field for input
+            entry = tk.Entry(input_window)
+            entry.insert(0, new_schedule[col])  # Populate with existing value
+            entry.pack(pady=5)
+
+            # Function to handle skip button
+            def on_skip():
+                new_schedule[col] = ""  # Leave empty for this column
+                input_window.destroy()
+
+            # Function to handle submit
+            def on_submit():
+                value = entry.get()
+                new_schedule[col] = value if value else ""  # Set value or leave empty
+                input_window.destroy()
+
+            # Function to handle cancel
+            def on_cancel():
+                input_window.destroy()
+                self.cancel_edit = True  # Set a flag to indicate cancellation
+
+            # Create buttons for skip, submit, and cancel
+            button_frame = tk.Frame(input_window)
+            button_frame.pack(pady=5)
+
+            skip_button = tk.Button(button_frame, text="Skip", command=on_skip)
+            skip_button.pack(side=tk.LEFT, padx=5)
+
+            submit_button = tk.Button(button_frame, text="Submit", command=on_submit)
+            submit_button.pack(side=tk.LEFT, padx=5)
+
+            cancel_button = tk.Button(button_frame, text="Cancel", command=on_cancel)
+            cancel_button.pack(side=tk.LEFT, padx=5)
+
+            # Wait for the input window to close
+            self.root.wait_window(input_window)
+
+            # Check if the process was cancelled
+            if hasattr(self, 'cancel_edit') and self.cancel_edit:
+                return  # Cancel was pressed, terminate the process
+
+        # Delete the old schedule from the DataFrame
+        second_column_value = item_values[1]  # Assuming the second column is the one to match
+
+        found_match = False
+        for index, row in self.df.iterrows():
+            if row[1] == second_column_value and all(row[i] == item_values[i] for i in range(len(item_values))):
+                self.df.drop(index, inplace=True)  # Delete the old entry
+                found_match = True
+                break
+
+        if not found_match:
+            print("No matching row found for deletion.")
+
+        # Insert the new schedule in the DataFrame
+        insert_index = len(self.df)
+        
+        # Find the correct insert index based on the second column value
+        for index, row in self.df.iterrows():
+            if row[1] == second_column_value:
+                insert_index = index + 1
+                break
+
+        self.df.loc[insert_index:insert_index] = [new_schedule]
+        self.df.reset_index(drop=True, inplace=True)
+
+        # Refresh the displayed table
+        self.show_table(self.df)
+
+
+
+
+
+
+
 
     def suggest_merge(self):
         pass  # Placeholder for suggesting merge functionality
 
     def find_conflict(self):
         pass  # Placeholder for finding conflict functionality
+
+
+    def delete_schedule(self):
+        selected_item = self.tree.selection()
+        
+        if not selected_item:
+            messagebox.showwarning("Warning", "Please select a schedule to delete.")
+            return
+        
+        # Confirm deletion
+        confirm = messagebox.askyesno("Confirm Deletion", "Are you sure you want to delete the selected schedule?")
+        if not confirm:
+            return
+
+        # Get the selected item's values
+        item_values = self.tree.item(selected_item)['values'][1:]  # Skip the first empty string
+        
+        # Debug output
+        print("Selected Item Values:", item_values)
+
+        # Find the original row in the DataFrame that matches the selected item's values
+        found_match = False
+        for index, row in self.df.iterrows():
+            print(f"Checking row {index}: {row.tolist()}")  # Debug output
+            if len(row) == len(item_values):  # Ensure lengths match
+                # Convert both to strings and compare
+                if all(str(row[i]).strip() == str(item_values[i]).strip() for i in range(len(item_values))):
+                    print(f"Deleting row {index}")  # Indicate which row will be deleted
+                    self.df.drop(index, inplace=True)
+                    found_match = True
+                    break
+
+        if not found_match:
+            print("No matching row found for deletion.")  # Indicate no match found
+
+        # Reset the DataFrame index
+        self.df.reset_index(drop=True, inplace=True)
+
+        # Refresh the displayed table
+        self.show_table(self.df)
+
 
 
 if __name__ == "__main__":

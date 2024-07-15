@@ -1,0 +1,25 @@
+User Documentation
+Overview
+
+Features
+Open and Save Files: Load schedules from an Excel file and save changes back to the file.
+Add Schedule: Input new schedule details.
+Edit Schedule: Modify existing schedules.
+Suggest Merge: Get suggestions for merging schedules based on enrollment thresholds.
+Merge Schedule: Combine two schedules into one.
+Find Conflict: Identify scheduling conflicts between different schedules.
+Delete Schedule: Remove a selected schedule from the list.
+Getting Started
+Open the App: Run the application to display the main window.
+Load an Excel File: Use the File menu to open an existing schedule file (default: TestFile.xlsx).
+View Schedules: Schedules will be displayed in a tabular format. The first four rows are headers and are not editable.
+Add/Edit/Delete/Merge Schedules: Use the options in the Schedule menu to manage schedules as needed.
+Usage Instructions
+Add Schedule: Select "Add Schedule" from the Schedule menu, fill in the required fields in the pop-up window, and confirm.
+Edit Schedule: Select a schedule from the list, then choose "Edit Schedule" to modify it.
+Delete Schedule: Select a schedule and choose "Delete Schedule," confirming the action when prompted.
+Merge Schedule: Select two schedules to merge, and ensure they share the same course code before confirming.
+Find Conflict: Click "Find Conflict" to check for overlapping schedules based on room and time.
+Important Notes
+Ensure the Excel file structure matches expected columns for correct functionality.
+Invalid entries (e.g., non-numeric in time fields) may lead to errors during operations.

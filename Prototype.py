@@ -24,8 +24,9 @@ class ExcelViewerApp:
         self.schedule_menu.add_command(label="Add Schedule", command=self.add_schedule)
         self.schedule_menu.add_command(label="Edit Schedule", command=self.edit_schedule)
         self.schedule_menu.add_command(label="Suggest Merge", command=self.suggest_merge)
+        self.schedule_menu.add_command(label="Merge Schedule", command=self.merge_schedules)
         self.schedule_menu.add_command(label="Find Conflict", command=self.find_conflict)
-        self.schedule_menu.add_command(label="Delete Schedule", command=self.delete_schedule)  # Add delete option
+        self.schedule_menu.add_command(label="Delete Schedule", command=self.delete_schedule)
 
         # Frame for displaying the table
         self.frame = tk.Frame(self.root)
@@ -99,7 +100,7 @@ class ExcelViewerApp:
         # Ensure main window focus
         self.root.lift()
         self.root.focus_force()
-        
+
         new_schedule = [''] * len(self.df.columns)  # Create an empty row with the right length
 
         for col in range(len(new_schedule)):
@@ -153,18 +154,13 @@ class ExcelViewerApp:
             if hasattr(self, 'cancel_add') and self.cancel_add:
                 return  # Cancel was pressed, terminate the process
 
-        # Insert the new schedule in the DataFrame
-        second_column_value = new_schedule[1]  # Assuming the second column is the one to match
-        insert_index = len(self.df)
+        # Append the new schedule to the DataFrame
+        self.df.loc[len(self.df)] = new_schedule  # Append to the end
+        self.df.reset_index(drop=True, inplace=True)  # Reset index to keep it clean
 
-        for index, row in self.df.iterrows():
-            if row[1] == second_column_value:
-                insert_index = index + 1
-                break
-
-        self.df.loc[insert_index:insert_index] = [new_schedule]
-        self.df.reset_index(drop=True, inplace=True)
+        # Refresh the displayed table
         self.show_table(self.df)
+
 
 
 
@@ -268,15 +264,153 @@ class ExcelViewerApp:
 
 
 
-
-
-
-
     def suggest_merge(self):
-        pass  # Placeholder for suggesting merge functionality
+        # Ask the user for the enrollment threshold
+        threshold = simpledialog.askinteger("Enrollment Threshold", "Enter the student threshold for merging:")
+
+        if threshold is None:
+            return  # User canceled the input
+
+        # Convert the Enrl Cap column to numeric, coercing errors to NaN
+        self.df[14] = pd.to_numeric(self.df[14], errors='coerce')
+
+        # Find rows with Enrl Cap below the threshold
+        below_threshold = self.df[self.df[14] < threshold]
+
+        if below_threshold.empty:
+            messagebox.showinfo("No Merges Suggested", "No schedules below the specified threshold found.")
+            return
+
+        # Create a Toplevel window to show suggestions
+        suggestion_window = tk.Toplevel(self.root)
+        suggestion_window.title("Merge Suggestions")
+
+        label = tk.Label(suggestion_window, text=f"Schedules with Enrollment Capacity below {threshold}:")
+        label.pack(pady=5)
+
+        for index, row in below_threshold.iterrows():
+            row_text = ', '.join(map(str, row))
+            row_label = tk.Label(suggestion_window, text=row_text)
+            row_label.pack(pady=2)
+
+        # Option to confirm merging
+        confirm_button = tk.Button(suggestion_window, text="Confirm Merge", command=lambda: self.confirm_merge(below_threshold))
+        confirm_button.pack(pady=10)
+
+
+
+
+
+    def merge_schedules(self):
+        selected_items = self.tree.selection()
+
+        if len(selected_items) != 2:
+            messagebox.showwarning("Merge Error", "Please select exactly two schedules to merge.")
+            return
+
+        # Retrieve the values of the selected items
+        schedules = [self.tree.item(item)['values'][1:] for item in selected_items]  # Skip the first empty string
+
+        # Check if the course codes are the same
+        if schedules[0][1] != schedules[1][1]:  # Course code is in the second column
+            messagebox.showwarning("Merge Error", "Cannot merge schedules with different course codes.")
+            return
+
+        # Create a new merged schedule
+        merged_schedule = [
+            '',  # First column remains empty
+            f"{schedules[0][0]} + {schedules[1][0]}",  # Takers
+            schedules[0][1],  # Course Code
+            schedules[0][2],  # Course Title (assuming same)
+            schedules[0][3],  # Offered To (assuming same)
+            '',  # Leave empty for this column
+            '',  # Leave empty for this column
+            '',  # Leave empty for this column
+            '',  # Leave empty for this column
+            '',  # Leave empty for this column
+            '',  # Leave empty for this column
+            '',  # Leave empty for this column
+            '',  # Leave empty for this column
+            '',  # Leave empty for this column
+            '',  # Leave empty for this column
+            int(schedules[0][14]) + int(schedules[1][14]),  # Enrl Cap (adding integer values)
+            '',  # Leave empty for this column
+            '',  # Leave empty for this column
+        ]
+
+        # Add the merged schedule to the DataFrame without shifting
+        self.df.loc[len(self.df)] = merged_schedule
+
+        # Delete the original schedules from the DataFrame
+        for item in selected_items:
+            index = self.tree.index(item)
+            self.df.drop(index, inplace=True)
+
+        self.df.reset_index(drop=True, inplace=True)  # Reset index to keep it clean
+
+        # Refresh the displayed table
+        self.show_table(self.df)
+
+        # Inform the user of the successful merge
+        messagebox.showinfo("Success", "Schedules merged successfully.")
+
+
+
+
 
     def find_conflict(self):
-        pass  # Placeholder for finding conflict functionality
+        conflicts = []  # To hold all conflicts
+        conflict_page = []  # Current page of conflicts
+
+        for index1, row1 in self.df.iterrows():
+            for index2, row2 in self.df.iterrows():
+                if index1 >= index2:  # Skip duplicate checks and self-checks
+                    continue
+
+                # Check for non-empty values in room and days
+                if (row1[5] and row2[5]) and (row1[0] and row2[0]):  # Room1 is not empty
+                    try:
+                        # Check Day1, Begin1, End1, Room1 for conflicts
+                        if (row1[6] == row2[6] and row1[5] == row2[5] and  # Same Room
+                            not (int(row1[7]) >= int(row2[8]) or int(row2[7]) >= int(row1[8]))):  # Time overlap
+                            conflict_page.append((row1.tolist(), row2.tolist()))
+                    except ValueError:
+                        print(f"Invalid time format for {row1[7]}, {row1[8]}, {row2[7]}, {row2[8]}")
+
+                if (row1[11] and row2[11]) and (row1[0] and row2[0]):  # Room2 is not empty
+                    try:
+                        # Check Day2, Begin2, End2, Room2 for conflicts
+                        if (row1[12] == row2[12] and row1[11] == row2[11] and  # Same Room
+                            not (int(row1[13]) >= int(row2[14]) or int(row2[13]) >= int(row1[14]))):  # Time overlap
+                            conflict_page.append((row1.tolist(), row2.tolist()))
+                    except ValueError:
+                        print(f"Invalid time format for {row1[13]}, {row1[14]}, {row2[13]}, {row2[14]}")
+
+            if conflict_page:
+                conflicts.append(conflict_page)
+                conflict_page = []  # Reset for the next set of conflicts
+
+        # Display conflicts
+        if conflicts:
+            for idx, conflict_group in enumerate(conflicts):
+                conflict_window = tk.Toplevel(self.root)
+                conflict_window.title(f"Conflict Group {idx + 1}")
+
+                label = tk.Label(conflict_window, text=f"Conflicts in Group {idx + 1}:")
+                label.pack(pady=5)
+
+                for row1, row2 in conflict_group:
+                    row_label = tk.Label(conflict_window, text=f"{row1} <-> {row2}")
+                    row_label.pack(pady=2)
+
+                close_button = tk.Button(conflict_window, text="Close", command=conflict_window.destroy)
+                close_button.pack(pady=10)
+        else:
+            messagebox.showinfo("No Conflicts", "No scheduling conflicts found.")
+
+
+
+
 
 
     def delete_schedule(self):

@@ -1,0 +1,33 @@
+will work on formating for this soon
+
+__init__(self, root, file_name): Initializes the application, sets up the menu, and loads the default file.
+  
+
+load_file(self): Loads the Excel file into a DataFrame and displays it in the Treeview.
+  could be better and this will for sure die if the formatiing of the sheets change
+
+save_file(self): Saves the current DataFrame back to the Excel file.
+  works, will die if the format changes
+
+show_table(self, df): Displays the DataFrame in the Treeview widget.
+  current bugs: there is one column to the right that just doesnt have anything i think im too sabog to find out why rn
+
+add_schedule(self): Allows users to add a new schedule via input dialogs.
+  works pretty well, but the prompts sucks rn
+  bug where in when you press cancel, yes it will cancel the operation, but you wont be able to add anymore
+  I want to make it so when you add a schedule it shows up next to the same course codes scheds
+
+edit_schedule(self): Allows users to edit selected schedules.
+  same problems with add_schedule
+
+suggest_merge(self): Suggests schedules for merging based on an enrollment threshold.
+  ui could be a bit better
+
+merge_schedules(self): Merges two selected schedules into one.
+  scuffed, its shifted to the right, doesnt follow the format, and it doesnt delete the other
+
+find_conflict(self): Checks for scheduling conflicts between schedules.
+  o^2 run time i can not make this better 
+
+delete_schedule(self): Deletes the selected schedule from the DataFrame.
+  scuffed but works
